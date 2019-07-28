@@ -1,6 +1,7 @@
 // ESP32 WiFi <-> 3x UART Bridge
 // by AlphaLima
 // www.LK8000.com
+// additional Code for XCSOAR and iGlide support by Torsten Beyer
 
 // Disclaimer: Don't use  for life support systems
 // or any other situations where system failure may affect
@@ -20,7 +21,6 @@ BluetoothSerial SerialBT;
 
 #ifdef OTA_HANDLER  
 #include <ArduinoOTA.h> 
-
 #endif // OTA_HANDLER
 
 HardwareSerial Serial_one(1);
@@ -35,6 +35,11 @@ WiFiServer server_1(SERIAL1_TCP_PORT);
 WiFiServer server_2(SERIAL2_TCP_PORT);
 WiFiServer *server[NUM_COM]={&server_0,&server_1,&server_2};
 WiFiClient TCPClient[NUM_COM][MAX_NMEA_CLIENTS];
+// Add special WiFiServer to handle iGlide connections - it will also receive data from COM[0]
+#endif
+#ifdef IGLIDE
+WiFiServer server_iGlide(IGLIDE_PORT);
+WiFiClient iGLIDEClient[MAX_IGLIDE_CLIENTS];
 #endif
 
 
@@ -57,16 +62,16 @@ void setup() {
   COM[2]->begin(UART_BAUD2, SERIAL_PARAM2, SERIAL2_RXPIN, SERIAL2_TXPIN);
   
   if(debug) COM[DEBUG_COM]->println("\n\nLK8000 WiFi serial bridge V1.00");
-  #ifdef MODE_AP 
+#ifdef MODE_AP 
    if(debug) COM[DEBUG_COM]->println("Open ESP Access Point mode");
   //AP mode (phone connects directly to ESP) (no router)
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(ip, ip, netmask); // configure ip address for softAP 
   WiFi.softAP(ssid, pw); // configure ssid and password for softAP
-  #endif
+#endif
 
 
-  #ifdef MODE_STA
+#ifdef MODE_STA
    if(debug) COM[DEBUG_COM]->println("Open ESP Station mode");
   // STATION mode (ESP connects to router and gets an IP)
   // Assuming phone is also connected to that router
@@ -81,11 +86,11 @@ void setup() {
   }
   if(debug) COM[DEBUG_COM]->println("\nWiFi connected");
   
-  #endif
+#endif
 #ifdef BLUETOOTH
   if(debug) COM[DEBUG_COM]->println("Open Bluetooth Server");  
   SerialBT.begin(ssid); //Bluetooth device name
- #endif
+#endif
 #ifdef OTA_HANDLER  
   ArduinoOTA
     .onStart([]() {
@@ -132,10 +137,60 @@ void setup() {
   server[2]->begin(); // start TCP server   
   server[2]->setNoDelay(true);
   #endif
+  
+  // start add'l server if iGlide is supported
+  #ifdef IGLIDE
+  COM[0]->println("Starting iGlide Server");  
+  if(debug) COM[DEBUG_COM]->println("Starting iGlide Server");  
+  server_iGlide.begin(); // start iGlide TCP Server
+  server_iGlide.setNoDelay(true);
+  #endif
 
   esp_err_t esp_wifi_set_max_tx_power(50);  //lower WiFi Power
 }
 
+#ifdef IGLIDE
+// handle startup for iGlide connection 
+bool start_iGlide_connection (int clientno) {
+  uint8_t buf[bufferSize];
+  int i;
+               
+  if(iGLIDEClient[clientno]) 
+  {
+    // check if iGlide sends "Hello"
+    i = 0;
+    while(iGLIDEClient[clientno].available())
+    {
+      buf[i] = iGLIDEClient[clientno].read(); // read char from client (iGlide)
+      if(i<bufferSize-1) i++;
+    } 
+    // we don't care what iGlide sends and forget buf content hence i=0
+    i= 0;
+    
+    // send PASS?*
+    iGLIDEClient[clientno].write (IGLIDE_PW_PHRASE);
+    
+    // read password from iGlide
+    while(iGLIDEClient[clientno].available())
+    {
+      buf[i] = iGLIDEClient[clientno].read(); // read char from client (iGlide)
+      if(i<bufferSize-1) i++;
+    }
+
+    // we don't care WHAT iGlide sends as long as it sends SOMETHING - meaning, it's alive and loves us
+    if (i>0) {
+      // send AOK
+      iGLIDEClient[clientno].write (IGLIDE_OK_PHRASE);
+      return true;
+    }
+    else {
+      // Hmm, iGlide fell asleep - so no connection in place, return false
+      return false;
+    }
+  }
+  return false;
+}
+#endif
 
 void loop() 
 {  
@@ -178,7 +233,38 @@ void loop()
       TmpserverClient.stop();
     }
   }
-#endif
+
+  // check if iGlide connection is coming in
+#ifdef IGLIDE
+  if (server_iGlide.hasClient()) {
+    bool connected = false;
+    bool startup_iglide = false;
+    
+    for(byte i = 0; i < MAX_IGLIDE_CLIENTS; i++){
+        //find free/disconnected spot
+        if (!iGLIDEClient[i] || !iGLIDEClient[i].connected()){
+          if(iGLIDEClient[i]) iGLIDEClient[i].stop();
+          iGLIDEClient[i] = server_iGlide.available();
+          if(debug) COM[DEBUG_COM]->print("New client for iGlide"); 
+          if(debug) COM[DEBUG_COM]->print("0"); 
+          if(debug) COM[DEBUG_COM]->println(i);
+
+          connected = true;
+          
+          // HANDLE IGLIDE CONNECTION PROTOCOL
+          startup_iglide = start_iGlide_connection(i);
+          if (!startup_iglide) {
+            iGLIDEClient[i].stop();
+          }
+        }
+    }
+    if (!connected) {
+      WiFiClient TmpserverClient = server_iGlide.available();
+      TmpserverClient.stop();
+    }
+  }
+#endif // IGLIDE
+#endif // PROTOCOL_TCP
  
   for(int num= 0; num < NUM_COM ; num++)
   {
@@ -196,6 +282,8 @@ void loop()
 
           COM[num]->write(buf1[num], i1[num]); // now send to UART(num):
           i1[num] = 0;
+
+          // add code for iGlide
         }
       }
   
@@ -212,6 +300,17 @@ void loop()
           if(TCPClient[num][cln])                     
             TCPClient[num][cln].write(buf2[num], i2[num]);
         }
+        // if iGlide supported AND num == IGLIDE_UART send data to iGlide devices, too
+#ifdef IGLIDE
+        if (num == IGLIDE_UART)
+        {
+          for(byte cln = 0; cln < MAX_IGLIDE_CLIENTS; cln++)
+          {   
+            if(iGLIDEClient[cln])                     
+              iGLIDEClient[cln].write(buf2[num], i2[num]);
+          }
+        }
+#endif
 #ifdef BLUETOOTH        
         // now send to Bluetooth:
         if(SerialBT.hasClient())      
@@ -222,4 +321,3 @@ void loop()
     }    
   }
 }
-
