@@ -50,6 +50,11 @@ uint16_t i1[NUM_COM]={0,0,0};
 uint8_t buf2[NUM_COM][bufferSize];
 uint16_t i2[NUM_COM]={0,0,0};
 
+#ifdef IGLIDE
+uint8_t iglidebuf[MAX_IGLIDE_CLIENTS][bufferSize];
+uint16_t ig_buf_cnt[MAX_IGLIDE_CLIENTS] = {0,0};
+#endif
+
 uint8_t BTbuf[bufferSize];
 uint16_t iBT =0;
 
@@ -152,15 +157,19 @@ void setup() {
 
 #ifdef IGLIDE
 // handle startup for iGlide connection 
+// returns true, if connection established successfully
+// returns false if connection setup fails
+// this startup procedure blocks everything else - hence there's a timeout built into this - after IGLIDE_CONN_TIMEOUT millisecs this procedure returns in any case
+
 bool start_iGlide_connection (int clientno) {
-  uint8_t buf[bufferSize];
   uint8_t b;
-  int i,j;
+  int i;
   bool byte_received;
+  unsigned long start; 
                  
+    // make sure there's a client associated with clientno
     if(iGLIDEClient[clientno]) 
     {
-      delay(500);
       // check if iGlide sends "Hello"
       i = 0;
       while(iGLIDEClient[clientno].available())
@@ -172,6 +181,7 @@ bool start_iGlide_connection (int clientno) {
       iGLIDEClient[clientno].write (IGLIDE_PW_PHRASE);
 
       // read password from iGlide
+      start = millis();
       for (i=0;i<IGLIDE_PW_LEN;i++)
       {
         do {
@@ -179,24 +189,20 @@ bool start_iGlide_connection (int clientno) {
            if (byte_received) {
               b = iGLIDEClient[clientno].read();
            }
-           // hier muss noch ein timeout rein!
+           // if iGlide takes more time than IGLIDE_CONN_TIMEOUT milliseconds for a reply, we assume it fell dead
+           if (millis() - start > IGLIDE_CONN_TIMEOUT) {
+              return false;
+           }
         } 
         while (!byte_received);
-      }
-    }
-    
-
-    // we don't care WHAT iGlide sends as long as it sends SOMETHING - meaning, it's alive and loves us
-    if (i>0) {
+      }   
       // send AOK
       iGLIDEClient[clientno].write (IGLIDE_OK_PHRASE);
       return true;
     }
     else {
-      // Hmm, iGlide fell asleep - so no connection in place, return false
       return false;
     }
-    return false;
 }
 #endif
 
@@ -289,13 +295,21 @@ void loop()
           } 
 
           COM[num]->write(buf1[num], i1[num]); // now send to UART(num):
-          i1[num] = 0;
-
-          // add code to allow iGlide to send data, too
-          //
-          
+          i1[num] = 0;        
         }
       }
+
+#ifdef IGLIDE
+      // Check for each connected iGlide client
+      for (byte cln = 0; cln < MAX_IGLIDE_CLIENTS; cln++) {
+        while (iGLIDEClient[cln].available()) {
+          iglidebuf[cln][ig_buf_cnt[cln]] = iGLIDEClient[cln].read(); // read char from client (LK8000 app)
+          if(ig_buf_cnt[cln]<bufferSize-1) ig_buf_cnt[num]++;
+        }
+        COM[IGLIDE_UART]->write(iglidebuf[cln], ig_buf_cnt[cln]); // now send to UART(IGLIDE_UART):
+        ig_buf_cnt[cln] = 0;  
+      }
+#endif
   
       if(COM[num]->available())
       {

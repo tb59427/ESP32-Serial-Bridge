@@ -84,6 +84,7 @@ IPAddress netmask(255, 255, 255, 0);
 #define MAX_IGLIDE_CLIENTS 2        // 2 Connections max - front seat + back seat
 #define IGLIDE_PW_PHRASE "PASS?"    // this string is sent by Air Connect once connected
 #define IGLIDE_PW_LEN 4             // Length of iGlide PW
+#define IGLIDE_CONN_TIMEOUT 1000    // timeout für die Antwort von iGlide auf das PASS? token
 #define IGLIDE_OK_PHRASE "AOK"      // this string is sent by Air Connect once PW was sent by iGlide
 #endif
 
