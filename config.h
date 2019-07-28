@@ -9,6 +9,8 @@
 
 
 #define PROTOCOL_TCP
+
+//if you want iGlide support uncomment the following line
 #define IGLIDE
 
 bool debug = true;
@@ -34,6 +36,7 @@ IPAddress netmask(255, 255, 255, 0);
 //                                  -> 192.168.4.1:8881  for UART1
 //                                  -> 192.168.4.1:8882  for UART2
 // Port numbers for XCSOAR are a little awkward with 4352,4353 and 10110 respectively
+// iGlide always expects data at port 2000
 
 
 #define NUM_COM   3                 // total number of COM Ports
