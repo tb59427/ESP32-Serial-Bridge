@@ -2,6 +2,7 @@
 // by AlphaLima
 // www.LK8000.com
 // additional Code for XCSOAR and iGlide support by Torsten Beyer
+// iGlide support is STILL EXPERIMENTAL - don't rely on it
 
 // Disclaimer: Don't use  for life support systems
 // or any other situations where system failure may affect
@@ -35,8 +36,8 @@ WiFiServer server_1(SERIAL1_TCP_PORT);
 WiFiServer server_2(SERIAL2_TCP_PORT);
 WiFiServer *server[NUM_COM]={&server_0,&server_1,&server_2};
 WiFiClient TCPClient[NUM_COM][MAX_NMEA_CLIENTS];
-// Add special WiFiServer to handle iGlide connections - it will also receive data from COM[0]
 #endif
+// Add special WiFiServer to handle iGlide connections - it will also receive data from COM[IGLIDE_UART]
 #ifdef IGLIDE
 WiFiServer server_iGlide(IGLIDE_PORT);
 WiFiClient iGLIDEClient[MAX_IGLIDE_CLIENTS];
@@ -153,29 +154,37 @@ void setup() {
 // handle startup for iGlide connection 
 bool start_iGlide_connection (int clientno) {
   uint8_t buf[bufferSize];
-  int i;
-               
-  if(iGLIDEClient[clientno]) 
-  {
-    // check if iGlide sends "Hello"
-    i = 0;
-    while(iGLIDEClient[clientno].available())
+  uint8_t b;
+  int i,j;
+  bool byte_received;
+                 
+    if(iGLIDEClient[clientno]) 
     {
-      buf[i] = iGLIDEClient[clientno].read(); // read char from client (iGlide)
-      if(i<bufferSize-1) i++;
-    } 
-    // we don't care what iGlide sends and forget buf content hence i=0
-    i= 0;
-    
-    // send PASS?*
-    iGLIDEClient[clientno].write (IGLIDE_PW_PHRASE);
-    
-    // read password from iGlide
-    while(iGLIDEClient[clientno].available())
-    {
-      buf[i] = iGLIDEClient[clientno].read(); // read char from client (iGlide)
-      if(i<bufferSize-1) i++;
+      delay(500);
+      // check if iGlide sends "Hello"
+      i = 0;
+      while(iGLIDEClient[clientno].available())
+      {
+          iGLIDEClient[clientno].read(); // read char from client (iGlide)
+      } 
+ 
+      // send PASS?*
+      iGLIDEClient[clientno].write (IGLIDE_PW_PHRASE);
+
+      // read password from iGlide
+      for (i=0;i<IGLIDE_PW_LEN;i++)
+      {
+        do {
+           byte_received = iGLIDEClient[clientno].available() > 0;
+           if (byte_received) {
+              b = iGLIDEClient[clientno].read();
+           }
+           // hier muss noch ein timeout rein!
+        } 
+        while (!byte_received);
+      }
     }
+    
 
     // we don't care WHAT iGlide sends as long as it sends SOMETHING - meaning, it's alive and loves us
     if (i>0) {
@@ -187,8 +196,7 @@ bool start_iGlide_connection (int clientno) {
       // Hmm, iGlide fell asleep - so no connection in place, return false
       return false;
     }
-  }
-  return false;
+    return false;
 }
 #endif
 
@@ -283,7 +291,9 @@ void loop()
           COM[num]->write(buf1[num], i1[num]); // now send to UART(num):
           i1[num] = 0;
 
-          // add code for iGlide
+          // add code to allow iGlide to send data, too
+          //
+          
         }
       }
   

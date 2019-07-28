@@ -37,6 +37,7 @@ IPAddress netmask(255, 255, 255, 0);
 //                                  -> 192.168.4.1:8882  for UART2
 // Port numbers for XCSOAR are a little awkward with 4352,4353 and 10110 respectively
 // iGlide always expects data at port 2000
+// #define IGLIDE_UART defines which dataport iGlide gets connected to
 
 
 #define NUM_COM   3                 // total number of COM Ports
@@ -81,7 +82,8 @@ IPAddress netmask(255, 255, 255, 0);
 #define IGLIDE_PORT 2000            // iGlide connects at port 2000
 #define IGLIDE_UART 0               // iGlide connections connect to GPIO port 0
 #define MAX_IGLIDE_CLIENTS 2        // 2 Connections max - front seat + back seat
-#define IGLIDE_PW_PHRASE "PASS?"   // this string is sent by Air Connect once connected
+#define IGLIDE_PW_PHRASE "PASS?"    // this string is sent by Air Connect once connected
+#define IGLIDE_PW_LEN 4             // Length of iGlide PW
 #define IGLIDE_OK_PHRASE "AOK"      // this string is sent by Air Connect once PW was sent by iGlide
 #endif
 
