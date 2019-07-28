@@ -11,6 +11,25 @@ Used Ports:
 192.168.4.1:8881  <-> COM1                                     
 192.168.4.1:8882  <-> COM2                                     
 
+2019-07-28:
+Additional support for XCSoar (funky port numbers) and iGlide (funky connection setup) added.
+
+# For xcsoar port numbers are as follows:
+Beware: in case you compile with XCSOAR support, XCSoar's strange port numbers also have to be used with lk8000
+COM0 - 4352
+COM1 - 4353
+COM2 - 10110
+IP Address remains the same as without xcsoar support
+
+# iGlide support
+For iGlide support (if compiled with it) ESP32-Serial-Bridge also listens on port 2000 and runs
+iGlide's funny connection setup procedure. Beware that for iGlide you can use any passwort. It's not evaluated. At this time, iGlide is only connected read-only (e.g. data sent from UART to iGlide).
+Beware: IP Address and SSID change for iGlide support. Not sure, whether iGlide really needs this. 
+
+IPAdress: 192.168.1.1                                           
+AP SSID: Air ConnectTB                                                   
+AP Password: Flightcomputer
+
 ===============================================================
 
 Used Libraries: (must be installed in the arduino IDE):
