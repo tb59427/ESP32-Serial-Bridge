@@ -17,8 +17,11 @@ Additional support for XCSoar (funky port numbers) and iGlide (funky connection 
 # For xcsoar port numbers are as follows:
 Beware: in case you compile with XCSOAR support, XCSoar's strange port numbers also have to be used with lk8000
 COM0 - 4352
+
 COM1 - 4353
+
 COM2 - 10110
+
 IP Address remains the same as without xcsoar support
 
 # iGlide support
