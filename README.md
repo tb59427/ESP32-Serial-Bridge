@@ -33,11 +33,18 @@ IPAdress: 192.168.1.1
 AP SSID: Air ConnectTB                                                   
 AP Password: Flightcomputer
 
+# Dynamic configuration
+Working on integrating a dynamic configuration via telnet and a simple CLI. That way all devices could be built off of one
+sketch and then dynamically configured on the spot. Config will end up in EEPROM.
+For dynamic configuration I use DynamicCommandParser (see below). Download it and put it into the root folder of your
+sketch in Arduino.
+
 ===============================================================
 
 Used Libraries: (must be installed in the arduino IDE):
 
 https://github.com/espressif/arduino-esp32
+https://github.com/mdjarv/DynamicCommandParser.git
 
 ===============================================================
 
